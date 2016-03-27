@@ -14,7 +14,7 @@ class Game < ActiveRecord::Base
     4.times do
       game.players << Player.create!
     end
-    @dealer = [0..3].sample
+    @dealer = (0..3).to_a.sample
     true
   end
 
@@ -22,7 +22,7 @@ class Game < ActiveRecord::Base
     num_players = @players.map{|p| p.code}.compact.size
     return "Need #{4-num_players} more players." if num_players < 4
 
-    'OK'
+    "It's #{@players[dealer].name}'s deal."
   end
 
   def join_game player_name
@@ -38,30 +38,13 @@ class Game < ActiveRecord::Base
     code
   end
 
-
-
-
-
-
-
-
-  def player1_in!
-    @players[0].in!
-  end
-  def player2_in!
-    @players[1].in!
-  end
-  def player3_in!
-    @players[2].in!
-  end
-  def player4_in!
-    @players[3].in!
-  end
-
   def deal!
     return unless self.players_ready?
-    @players.each do |player|
-      player.hand.deal(@deck, 5)
+    5.times do
+      4.times do
+        @dealer = (@dealer + 1) % 4
+        @players[dealer].hand.draw(@deck, 1)
+      end
     end
   end
 

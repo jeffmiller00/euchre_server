@@ -26,6 +26,21 @@ class GameTest < ActiveSupport::TestCase
     euchre.join_game 'c'
     assert_equal 'Need 1 more players.', euchre.status
     euchre.join_game 'd'
-    assert_equal 'OK', euchre.status
+    assert_match /It\'s [\w]\'s deal./, euchre.status
+  end
+
+  test 'after the deal, each player has five cards' do
+    euchre = Game.new
+    euchre.join_game 'a'
+    euchre.join_game 'b'
+    euchre.join_game 'c'
+    euchre.join_game 'd'
+    # Not sure we want to move the dealer here...
+    #original_dealer = euchre.dealer
+    euchre.deal!
+    euchre.players.each do |player|
+      assert_equal 5, player.hand.cards.size
+    end
+    #assert_equal (original_dealer+1)%4, euchre.dealer
   end
 end
