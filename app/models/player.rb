@@ -1,7 +1,7 @@
 include RubyCards
 
 class Player < ActiveRecord::Base
-  attr_reader :code
+  attr_reader :uuid
   attr_accessor :hand, :name
 
   after_initialize do |player|
@@ -9,11 +9,21 @@ class Player < ActiveRecord::Base
   end
 
   def in!
-    @code = ('a'..'z').to_a.sample unless @code
-    @code
+    @uuid = SecureRandom.uuid unless @uuid
+    self.save!
+    @uuid
   end
 
   def ready?
-    !@code.nil?
+    !@uuid.nil?
+  end
+
+  def code
+    @uuid
+  end
+
+  def self.get_authorized_player id, code
+    player = Player.find id
+    player.uuid == uuid ? player : nil
   end
 end

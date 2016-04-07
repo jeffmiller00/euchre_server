@@ -33,13 +33,13 @@ gem 'sdoc', '~> 0.4.0', group: :doc
 
 
 gem 'rubycards', git: 'https://github.com/jdan/rubycards.git'
-gem 'faker'
 
 group :development, :test do
   # Call 'byebug' anywhere in the code to stop execution and get a debugger console
   gem 'byebug'
   gem 'minitest'
   gem 'purdytest'
+  gem 'faker'
 end
 
 group :development do
