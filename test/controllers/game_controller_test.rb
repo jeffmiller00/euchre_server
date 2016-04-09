@@ -6,6 +6,20 @@ class GameControllerTest < ActionController::TestCase
     assert_equal "{\"status\":\"Need 4 more players.\"}", response.body
   end
 
+  test 'that only the dealer can deal' do
+    game = Game.create
+    player_codes = []
+    ('A'..'D').to_a.each do |player|
+      response = post :join_game, id: game.id, name: player
+      player_codes << JSON.parse(response.body)['code']
+    end
+    response = post :deal, id: game.id, code: player_codes[0]
+    assert_equal "{\"status\":\"Dealer: A, with [CARD] showing.\"}", response.body
+  end
+
+
+
+  # Moved this test to the bottom because the syntax highlighting is messed up.
   test 'you can join a game' do
     game = Game.create
     response = post :join_game, id: game.id, name: 'Jeff'

@@ -8,6 +8,7 @@ class Game < ActiveRecord::Base
   after_initialize do |game|
     game.deck = RubyCards::Deck.new({number_decks: 1, exclude_rank: [2,3,4,5,6,7,8]})
     game.deck.shuffle!
+    @up_card = RubyCards::Hand.new
     @dealer = (0..3).to_a.sample
     true
   end
@@ -16,6 +17,7 @@ class Game < ActiveRecord::Base
     return "Need #{4-self.players.size} more players." if self.players.size < 4
 
     "It's #{self.players[@dealer].name}'s deal."
+    # Need conditional for above, now move on to gameplay.
   end
 
   def join_game player_name
@@ -27,6 +29,10 @@ class Game < ActiveRecord::Base
     new_player.code
   end
 
+  def is_dealer? player
+    !!(player == self.players[@dealer])
+  end
+
   def deal!
     return unless self.players_ready?
     5.times do
@@ -35,7 +41,7 @@ class Game < ActiveRecord::Base
         self.players[@dealer].hand.draw(@deck, 1)
       end
     end
-    # set top card.
+    @up_card.draw(@deck, 1)
   end
 
   protected
