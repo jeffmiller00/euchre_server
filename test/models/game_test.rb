@@ -6,8 +6,11 @@ class GameTest < ActiveSupport::TestCase
     assert_equal [9,10,'J','Q','K','A'].size * ['♣','♠','♥','♦'].size, euchre.deck.cards.size
   end
 
-  test 'there are only 4 players' do
+  test 'there can only be 4 players' do
     euchre = Game.new
+    5.times do |i|
+      euchre.join_game i
+    end
     assert_equal 4, euchre.players.size
   end
 
@@ -35,12 +38,9 @@ class GameTest < ActiveSupport::TestCase
     euchre.join_game 'b'
     euchre.join_game 'c'
     euchre.join_game 'd'
-    # Not sure we want to move the dealer here...
-    #original_dealer = euchre.dealer
     euchre.deal!
     euchre.players.each do |player|
       assert_equal 5, player.hand.cards.size
     end
-    #assert_equal (original_dealer+1)%4, euchre.dealer
   end
 end
