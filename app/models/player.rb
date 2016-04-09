@@ -1,29 +1,25 @@
-include RubyCards
-
 class Player < ActiveRecord::Base
-  attr_reader :uuid
-  attr_accessor :hand, :name
+  belongs_to :game
+  attr_accessor :hand
 
-  after_initialize do |player|
-    player.hand = Hand.new
-  end
+  CRYPT_PW = 'We will move this into ENV later'
 
-  def in!
-    @uuid = SecureRandom.uuid unless @uuid
-    self.save!
-    @uuid
+  after_initialize :initialize_hand
+  def initialize_hand
+    self.hand = RubyCards::Hand.new
   end
+  protected :initialize_hand
 
   def ready?
-    !@uuid.nil?
+    !self.game.nil?
   end
 
   def code
-    @uuid
+    @code ||= AESCrypt.encrypt(self.id, CRYPT_PW)
   end
 
-  def self.get_authorized_player id, code
-    player = Player.find id
-    player.uuid == uuid ? player : nil
+  def self.find_by_code code
+    player_id = AESCrypt.decrypt(code, CRYPT_PW)
+    Player.find player_id
   end
 end

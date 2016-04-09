@@ -22,9 +22,12 @@ ActiveRecord::Schema.define(version: 20160326201606) do
   end
 
   create_table "players", force: :cascade do |t|
-    t.string   "uuid"
+    t.string   "name"
+    t.integer  "game_id"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
   end
+
+  add_index "players", ["game_id"], name: "index_players_on_game_id", using: :btree
 
 end
