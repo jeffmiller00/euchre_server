@@ -18,6 +18,7 @@ gem 'sdoc', '~> 0.4.0', group: :doc
 # Use Capistrano for deployment
 # gem 'capistrano-rails', group: :development
 
+gem 'aasm'
 gem 'rubycards', git: 'https://github.com/jdan/rubycards.git'
 gem 'aescrypt'
 
@@ -27,6 +28,7 @@ group :development, :test do
   gem 'minitest'
   gem 'purdytest'
   gem 'faker'
+  gem 'pry-rails'
 end
 
 group :development do
