@@ -27,6 +27,7 @@ group :development, :test do
   gem 'minitest'
   gem 'purdytest'
   gem 'faker'
+  gem 'pry-rails'
 end
 
 group :development do

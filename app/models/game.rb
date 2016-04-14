@@ -9,11 +9,13 @@ class Game < ActiveRecord::Base
   attr_reader :up_card, :trump_suit, :trump_declaring_team, :first_card,
               :card_played, :cards_in_play, :cards_in_discard, :team_scores,
               :tricks_won
-  attr_accessor :deck
+
+  attr_accessor :deck, :state
 
   after_initialize do |game|
     game.deck = RubyCards::Deck.new({number_decks: 1, exclude_rank: [2,3,4,5,6,7,8]})
     game.deck.shuffle!
+
     @whose_deal   = (0..3).to_a.sample
     @card_played  = {}
     @team_scores  = { 0 => 0, 1 => 0 }
@@ -54,6 +56,7 @@ class Game < ActiveRecord::Base
 
   def pick_it_up!(player_code)
     return unless state == :declaring_trump
+
     @trump_declaring_team = team(player_code)
     pick_it_up
   end
@@ -70,119 +73,129 @@ class Game < ActiveRecord::Base
 
   def pass(player_code)
     return unless player_turn?(code_to_turn(player_code))
+
     pass
   end
 
   def play(player_code, card)
     return "It's not your turn" unless player_turn?(code_to_turn(player_code))
+
     @current_suit             = suitify(card) if @cards_in_play.cards.size == 0
     @cards_in_play            = RubyCards::Hand.new(@cards_in_play.cards + [card])
     @card_played[@whose_turn] = card
-    play_card
+    play
+  end
+
+  def rake_card_pile
+    @first_turn       = winner_of_this_trick
+    @tricks_won[@first_turn % 2] += 1
+
+    @whose_turn       = @first_turn
+    @current_suit     = nil
+    @card_played      = {}
+
+    @cards_in_discard = RubyCards::Hand.new(@cards_in_play.cards + @cards_in_discard.cards)
+    @cards_in_play    = RubyCards::Hand.new
+
+    rake_cards
+  end
+
+  def calculate_scores
+    team0 = @tricks_won[0]
+    team1 = @tricks_won[1]
+    winning_team = team0 > team1 ? 0 : 1
+
+    if @trump_declaring_team == winning_team
+      if @tricks_won[winning_team] == 5
+        @team_scores[winning_team] += 2
+      else
+        @team_scores[winning_team] += 1
+      end
+    else
+      @team_scores[1 - winning_team] += 2
+    end
+
+    end_game if end_of_game?
+  end
+
+  def game_deal
+    num_to_draw = [2, 3, 2, 3, 2]
+    2.times do |j|
+      4.times do |p|
+        players[p].hand.draw(@deck, num_to_draw[p + j])
+      end
+    end
+
+    @whose_deal = (@whose_deal + 1) % 4
+    @first_turn = (@whose_deal + 1) % 4
+    @whose_turn = @first_turn
+    @up_card.draw(@deck, 1)
+  end
+
+  def dealer_take_top_card
+    @trump_suit = suitify(@up_card.cards.first)
+    @whose_turn = @whose_deal
   end
 
   def is_dealer?(player)
     !!(player == self.players[@whose_deal])
   end
 
-  state_machine :state, :initial => :need_players do
+  state_machine :state, initial: :need_players do
 
-    after_transition any => :raking_cards do
-      @first_turn       = winner_of_this_trick
-      @tricks_won[@first_turn % 2] += 1
-
-      @whose_turn       = @first_turn
-      @current_suit     = nil
-      @card_played      = {}
-
-      @cards_in_discard = RubyCards::Hand.new(@cards_in_play.cards + @cards_in_discard.cards)
-      @cards_in_play    = RubyCards::Hand.new
-
-      rake_cards
-    end
-
-    after_transition :raking_cards => :scoring do
-      team0 = @tricks_won[0]
-      team1 = @tricks_won[1]
-      winning_team = team0 > team1 ? 0 : 1
-
-      if @trump_declaring_team == winning_team
-        if @tricks_won[winning_team] == 5
-          @team_scores[winning_team] += 2
-        else
-          @team_scores[winning_team] += 1
-        end
-      else
-        @team_scores[1 - winning_team] += 2
-      end
-
-      end_game if end_of_game?
-    end
+    after_transition any => :raking_cards, do: :rake_card_pile
+    after_transition :raking_cards => :scoring, do: :calculate_scores
+    before_transition on: :deal, do: :game_deal
 
     event :deal do
-      num_to_draw = [2, 3, 2, 3, 2]
-      2.times do |j|
-        4.times do |p|
-          self.players[p].hand.draw(@deck, num_to_draw[p + j])
-        end
-      end
-
-      @whose_deal = (@whose_deal + 1) % 4
-      @first_turn = (@whose_deal + 1) % 4
-      @whose_turn = @first_turn
-      @up_card.draw(@deck, 1)
-
-      transition :need_players, :scoring => :declaring_trump
+      transition :need_players => :declaring_trump, if: lambda { |g| g.players.size == 4 }
+      transition :scoring => :declaring_trump
     end
 
     event :pass do
       transition :trump_suit_undeclared => :dealer_declaring_trump, if: -> { @whose_turn == @whose_deal && state == :trump_suit_undeclared }
       transition :declaring_trump => :trump_suit_undeclared, if: -> { @whose_turn == @whose_deal }
-      @whose_turn = (@whose_turn + 1) % 4
     end
+    after_transition on: [:pass, :play] , do: :next_turn!
+    before_transition on: [:declare_trump, :dealer_discard], do: :lead_turn!
 
     event :declare_trump do
-      @whose_turn = @first_turn
-      transition :trump_suit_undeclared, :dealer_declaring_trump  => :player0_playing, if: -> { player_turn?(0) }
-      transition :trump_suit_undeclared, :dealer_declaring_trump  => :player1_playing, if: -> { player_turn?(1) }
-      transition :trump_suit_undeclared, :dealer_declaring_trump  => :player2_playing, if: -> { player_turn?(2) }
-      transition :trump_suit_undeclared, :dealer_declaring_trump  => :player3_playing, if: -> { player_turn?(3) }
+      transition [:trump_suit_undeclared, :dealer_declaring_trump]  => :player0_playing, if: lambda{ |g| g.player_turn?(0) }
+      transition [:trump_suit_undeclared, :dealer_declaring_trump]  => :player1_playing, if: lambda{ |g| g.player_turn?(1) }
+      transition [:trump_suit_undeclared, :dealer_declaring_trump]  => :player2_playing, if: lambda{ |g| g.player_turn?(2) }
+      transition [:trump_suit_undeclared, :dealer_declaring_trump]  => :player3_playing, if: lambda{ |g| g.player_turn?(3) }
     end
 
     event :pick_it_up do
       transition :declaring_trump => :dealer_discarding
-      @trump_suit = suitify(@up_card.cards.first)
-      @whose_turn = @whose_deal
     end
+    after_transition on: :pick_it_up, do: :dealer_take_top_card
 
     event :dealer_discard do
-      @whose_turn = @first_turn
-      transition :dealer_discarding  => :player0_playing, if: -> { player_turn?(0) }
-      transition :dealer_discarding  => :player1_playing, if: -> { player_turn?(1) }
-      transition :dealer_discarding  => :player2_playing, if: -> { player_turn?(2) }
-      transition :dealer_discarding  => :player3_playing, if: -> { player_turn?(3) }
+      transition :dealer_discarding  => :player0_playing, if: lambda { |g| g.player_turn?(0) }
+      transition :dealer_discarding  => :player1_playing, if: lambda { |g| g.player_turn?(1) }
+      transition :dealer_discarding  => :player2_playing, if: lambda { |g| g.player_turn?(2) }
+      transition :dealer_discarding  => :player3_playing, if: lambda { |g| g.player_turn?(3) }
     end
 
-    event :play_card do
-      transition :player0_playing  => :player1_playing, if: -> { player_turn?(0) }
-      transition :player1_playing  => :player2_playing, if: -> { player_turn?(1) }
-      transition :player2_playing  => :player3_playing, if: -> { player_turn?(2) }
-      transition :player3_playing  => :player0_playing, if: -> { player_turn?(3) }
-      @whose_turn = (@whose_turn + 1) % 4
-
+    event :play do
       transition [
         :player0_playing,
         :player1_playing,
         :player2_playing,
         :player3_playing
-      ] => :raking_cards, if: -> { player_turn?(@first_turn) &&  }
+      ] => :raking_cards, if: lambda { |g| g.player_turn?(@first_turn) }
+      transition :player0_playing  => :player1_playing, if: lambda { |g| g.player_turn?(0) }
+      transition :player1_playing  => :player2_playing, if: lambda { |g| g.player_turn?(1) }
+      transition :player2_playing  => :player3_playing, if: lambda { |g| g.player_turn?(2) }
+      transition :player3_playing  => :player0_playing, if: lambda { |g| g.player_turn?(3) }
     end
 
     event :rake_cards do
-      transition :raking_cards  => :player0_playing, if: -> { player_turn?(0) }
-      transition :raking_cards  => :player1_playing, if: -> { player_turn?(1) }
-      transition :raking_cards  => :player2_playing, if: -> { player_turn?(2) }
-      transition :raking_cards  => :player3_playing, if: -> { player_turn?(3) }
+      transition :raking_cards  => :player0_playing, if: lambda { |g| g.player_turn?(0) }
+      transition :raking_cards  => :player1_playing, if: lambda { |g| g.player_turn?(1) }
+      transition :raking_cards  => :player2_playing, if: lambda { |g| g.player_turn?(2) }
+      transition :raking_cards  => :player3_playing, if: lambda { |g| g.player_turn?(3) }
       transition :raking_cards  => :scoring, if: -> { end_of_round? }
     end
 
@@ -211,6 +224,14 @@ class Game < ActiveRecord::Base
 
   def end_of_trick?
     @cards_in_play.cards.size == 4
+  end
+
+  def next_turn!
+    @whose_turn = (@whose_turn + 1) % 4
+  end
+
+  def lead_turn!
+    @whose_turn = @first_turn
   end
 
   def winner_of_this_trick
