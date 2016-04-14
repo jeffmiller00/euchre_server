@@ -51,6 +51,8 @@ class Game < ActiveRecord::Base
     new_player.name = player_name
     new_player.save!
     new_player.code
+
+    deal if enough_players?
   end
 
   def player_pick_it_up(player_code)
@@ -153,7 +155,7 @@ class Game < ActiveRecord::Base
     state :raking_cards, :laying_cards, :game_over, :dealer_discarding
 
     event :deal do
-      transitions from: :need_players, to: :declaring_trump, guard: :players_ready?, after: :game_deal
+      transitions from: :need_players, to: :declaring_trump, guard: :enough_players?, after: :game_deal
       # transitions from: :scoring, to: :declaring_trump
     end
 
@@ -278,7 +280,7 @@ class Game < ActiveRecord::Base
     self.players[@whose_turn]
   end
 
-  def players_ready?
+  def enough_players?
     return false if players.empty?
 
     self.players.each do |player|
