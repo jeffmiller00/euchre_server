@@ -56,7 +56,7 @@ class Game < ActiveRecord::Base
   end
 
   def player_pick_it_up(player_code)
-    return unless state == :declaring_trump
+    return unless self.declaring_trump?
 
     @trump_declaring_team = team(player_code)
     pick_it_up
@@ -167,7 +167,7 @@ class Game < ActiveRecord::Base
     end
 
     event :pick_it_up do
-      transitions from: :declaring_trump, to: :dealer_discarding, after: :first_turn!
+      transitions from: :declaring_trump, to: :dealer_discarding, after: :lead_turn!
     end
 
     event :declare_trump do
@@ -260,7 +260,7 @@ class Game < ActiveRecord::Base
     end
   end
 
-  def code_to_turn
+  def code_to_turn(player_code)
     self.players.index { |p| p.code == player_code }
   end
 
@@ -281,7 +281,7 @@ class Game < ActiveRecord::Base
   end
 
   def enough_players?
-    return false if players.empty?
+    return false if players.size < 4
 
     self.players.each do |player|
       return false unless player.ready?

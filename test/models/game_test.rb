@@ -28,4 +28,15 @@ class GameTest < ActiveSupport::TestCase
       assert_equal 5, player.hand.cards.size
     end
   end
+
+  test 'any player can order it up' do
+    4.times do |pid|
+      euchre = Game.new
+      4.times { euchre.join_game Faker::Name.name }
+      player = euchre.players[pid]
+      pid.times { euchre.player_pass player.code }
+      euchre.player_pick_it_up player.code
+      assert_equal 'dealer_discarding', euchre.state
+    end
+  end
 end
