@@ -33,9 +33,29 @@ class GameTest < ActiveSupport::TestCase
     4.times do |pid|
       euchre = Game.new
       4.times { euchre.join_game Faker::Name.name }
-      player = euchre.players[pid]
+      player = euchre.send(:at_bat)
       pid.times { euchre.player_pass player.code }
       euchre.player_pick_it_up player.code
+      assert_equal 'dealer_discarding', euchre.state
+    end
+  end
+
+  test 'if everyone passes the first round, the state changes' do
+    euchre = Game.new
+    4.times { euchre.join_game Faker::Name.name }
+    euchre.players.each { euchre.player_pass euchre.send(:at_bat).code }
+    assert_equal 'trump_suit_undeclared', euchre.state
+  end
+
+  test 'any player can declare trump after the first round' do
+    4.times do |pid|
+      euchre = Game.new
+      4.times { euchre.join_game Faker::Name.name }
+      euchre.players.each { euchre.player_pass euchre.send(:at_bat).code }
+      assert_equal 'trump_suit_undeclared', euchre.state
+
+      pid.times { euchre.player_pass euchre.send(:at_bat).code }
+      euchre.player_declare_trump(euchre.send(:at_bat).code, Game::SUITS[pid])
       assert_equal 'dealer_discarding', euchre.state
     end
   end

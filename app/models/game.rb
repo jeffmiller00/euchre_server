@@ -2,6 +2,7 @@ class Game < ActiveRecord::Base
   include AASM
 
   RANKS = { 'Jack' => 11, 'Queen' => 12, 'King' => 13, 'Ace' => 14 }
+  SUITS = [:hearts, :diamonds, :spades, :clubs]
   SUIT_INVERSE = { hearts: :diamonds, diamonds: :hearts, clubs: :spades, spades: :clubs }
 
   has_many :players
@@ -62,20 +63,21 @@ class Game < ActiveRecord::Base
     pick_it_up
   end
 
-  def player_call_trump(player_code, suit)
-    return unless state == :trump_suit_undeclared ||
-      code_to_turn(player_code) == @whose_deal && 
-        state == :dealer_declaring_trump
+  def player_declare_trump(player_code, suit)
+    return unless state == 'trump_suit_undeclared' ||
+                  ( code_to_turn(player_code) == @whose_deal &&
+                    state == 'dealer_declaring_trump')
 
-    @trump_suit     = suit.downcase.to_sym
+    # Todo: We shouldn't allow the trump suit to be the same suit as the up card suit
+    @trump_suit = suit.downcase.to_sym
     @trump_declaring_team = team(player_code)
-    # declare_trump
+    declare_trump
   end
 
   def player_pass(player_code)
     return unless player_turn?(code_to_turn(player_code))
 
-    # blah
+    pass
   end
 
   def player_play(player_code, card)
@@ -160,7 +162,7 @@ class Game < ActiveRecord::Base
     end
 
     event :pass do
-      transitions from: :declaring_trump, to: :declaring_trump, guard:  -> { !dealer_turn? }, after: :next_turn!
+      transitions from: :declaring_trump, to: :declaring_trump, guard: -> { !dealer_turn? }, after: :next_turn!
       transitions from: :declaring_trump, to: :trump_suit_undeclared, guard: :dealer_turn?, after: :next_turn!
       transitions from: :trump_suit_undeclared, to: :trump_suit_undeclared, guard: -> { !screw_the_dealer? }, after: :next_turn!
       transitions from: :trump_suit_undeclared, to: :dealer_declaring_trump, guard: :screw_the_dealer?, after: :next_turn!
