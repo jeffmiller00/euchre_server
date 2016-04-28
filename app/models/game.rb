@@ -177,7 +177,7 @@ class Game < ActiveRecord::Base
   end
 
   def game_screw_the_dealer?
-    dealer_turn? && self.trump_suit_undeclared?
+    game_dealer_turn? && self.trump_suit_undeclared?
   end
 
   def card_in_player_hand?(player_code, card)
