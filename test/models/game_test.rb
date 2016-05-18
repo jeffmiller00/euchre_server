@@ -16,14 +16,24 @@ class GameTest < ActiveSupport::TestCase
     assert_equal 'declaring_trump', euchre.state
   end
 
+  def ready_game
+    new_game = Game.new
+    4.times { new_game.join_game Faker::Name.name }
+    new_game
+  end
+
+  def dealt_game
+    euchre = ready_game
+    player = euchre.send(:player)
+    dealer = euchre.send(:dealer)
+    euchre.player_pick_it_up player.code
+
+    card   = dealer.hand.cards.sample
+    euchre.player_discard(dealer.code, card)
+    euchre
+  end
 
   describe 'after the players have joined' do
-    def ready_game
-      new_game = Game.new
-      4.times { new_game.join_game Faker::Name.name }
-      new_game
-    end
-
     let(:euchre) { ready_game }
 
     it 'after the deal, each player has five cards' do
@@ -43,6 +53,19 @@ class GameTest < ActiveSupport::TestCase
         euchre.player_pick_it_up player.code
         assert_equal 'dealer_discarding', euchre.state
       end
+    end
+
+    it 'dealer must discard after picking it up' do
+      euchre = ready_game
+      euchre.player_pick_it_up euchre.send(:player).code
+      assert_equal 'dealer_discarding', euchre.state
+      assert euchre.may_dealer_discard?
+
+      player  = euchre.send(:player)
+      card    = player.hand.cards.sample
+      euchre.player_discard(player.code, card)
+      assert_equal 'laying_cards', euchre.state
+      assert_equal 5, player.hand.cards.size
     end
 
     it 'if everyone passes the first round, the state changes' do
@@ -70,6 +93,17 @@ class GameTest < ActiveSupport::TestCase
 
       3.times { euchre.player_pass euchre.send(:player).code }
       assert_equal 'dealer_declaring_trump', euchre.state
+    end
+  end
+
+  describe 'after trump has been declared' do
+    let(:euchre) { dealt_game }
+
+    it 'each player can lay exactly 1 card per round' do
+    end
+
+    it 'another round begins if players have cards remaining' do
+
     end
   end
 end
