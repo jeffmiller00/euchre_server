@@ -177,7 +177,11 @@ class Game < ActiveRecord::Base
   end
 
   def game_screw_the_dealer?
-    game_dealer_turn? && self.trump_suit_undeclared?
+    game_next_turn_dealer? && self.trump_suit_undeclared?
+  end
+
+  def game_next_turn_dealer?
+    @whose_turn == (@whose_deal-1)%4
   end
 
   def card_in_player_hand?(player_code, card)
@@ -215,7 +219,7 @@ class Game < ActiveRecord::Base
     end
 
     event :declare_trump do
-      transitions from: :dealer_declaring_trump, to: :dealer_discarding, guard: :game_dealer_turn?
+      transitions from: :dealer_declaring_trump, to: :laying_cards, guard: :game_dealer_turn?
       transitions from: :trump_suit_undeclared, to: :laying_cards, guard: -> { !game_dealer_turn? }
     end
 

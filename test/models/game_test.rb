@@ -37,8 +37,9 @@ class GameTest < ActiveSupport::TestCase
     it 'any player can order it up' do
       4.times do |pid|
         euchre = ready_game
+        pid.times { euchre.player_pass euchre.send(:player).code }
+        
         player = euchre.send(:player)
-        pid.times { euchre.player_pass player.code }
         euchre.player_pick_it_up player.code
         assert_equal 'dealer_discarding', euchre.state
       end
@@ -55,8 +56,10 @@ class GameTest < ActiveSupport::TestCase
         euchre.players.each { euchre.player_pass euchre.send(:player).code }
         assert_equal 'trump_suit_undeclared', euchre.state
 
+        trump_suit = (Game::SUITS - [euchre.send(:top_card_trump)]).sample
         pid.times { euchre.player_pass euchre.send(:player).code }
-        euchre.player_declare_trump(euchre.send(:player).code, Game::SUITS[pid])
+
+        euchre.player_declare_trump(euchre.send(:player).code, trump_suit)
         assert_equal 'laying_cards', euchre.state
       end
     end
