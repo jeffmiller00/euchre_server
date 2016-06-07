@@ -16,24 +16,13 @@ class GameTest < ActiveSupport::TestCase
     assert_equal 'declaring_trump', euchre.state
   end
 
-  def ready_game
-    new_game = Game.new
-    4.times { new_game.join_game Faker::Name.name }
-    new_game
-  end
-
-  def dealt_game
-    euchre = ready_game
-    player = euchre.send(:player)
-    dealer = euchre.send(:dealer)
-    euchre.player_pick_it_up player.code
-
-    card   = dealer.hand.cards.sample
-    euchre.player_discard(dealer.code, card)
-    euchre
-  end
-
   describe 'after the players have joined' do
+    # Todo: These methods need to be DRY'd up.
+    def ready_game
+      new_game = Game.new
+      4.times { new_game.join_game Faker::Name.name }
+      new_game
+    end
     let(:euchre) { ready_game }
 
     it 'after the deal, each player has five cards' do
@@ -56,7 +45,6 @@ class GameTest < ActiveSupport::TestCase
     end
 
     it 'dealer must discard after picking it up' do
-      euchre = ready_game
       euchre.player_pick_it_up euchre.send(:player).code
       assert_equal 'dealer_discarding', euchre.state
       assert euchre.may_dealer_discard?
@@ -97,9 +85,33 @@ class GameTest < ActiveSupport::TestCase
   end
 
   describe 'after trump has been declared' do
+    # Todo: These methods need to be DRY'd up.
+    def ready_game
+      new_game = Game.new
+      4.times { new_game.join_game Faker::Name.name }
+      new_game
+    end
+    def dealt_game
+      euchre = ready_game
+      player = euchre.send(:player)
+      dealer = euchre.send(:dealer)
+      euchre.player_pick_it_up player.code
+
+      card   = dealer.hand.cards.sample
+      euchre.player_discard(dealer.code, card)
+      euchre
+    end
     let(:euchre) { dealt_game }
 
     it 'each player can lay exactly 1 card per round' do
+      5.times do |round|
+        4.times do |i|
+          player = euchre.send(:player)
+          euchre.player_play(player.code, player.hand.cards.first)
+          assert_equal (4-round), player.hand.cards.size
+        end
+        assert_equal 'raking_cards', euchre.state
+      end
     end
 
     it 'another round begins if players have cards remaining' do

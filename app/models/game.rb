@@ -115,6 +115,7 @@ class Game < ActiveRecord::Base
     @play_pile    = RubyCards::Hand.new
     @current_suit = nil
 
+    # Todo: This transition fails
     rake
   end
 
@@ -194,7 +195,7 @@ class Game < ActiveRecord::Base
     aasm_state
   end
 
-  aasm :whiny_transitions => false do
+  aasm :whiny_transitions => true do
     state :need_players, initial: true
     state :scoring, :declaring_trump, :trump_suit_undeclared, :dealer_declaring_trump
     state :raking_cards, :laying_cards, :game_over, :dealer_discarding
@@ -229,6 +230,7 @@ class Game < ActiveRecord::Base
 
     event :play do
       transitions from: :laying_cards, to: :laying_cards, guard: -> { !end_of_trick? }, after: :next_turn!
+      # This transition never appears to happen.
       transitions from: :laying_cards, to: :raking_cards, guard: :end_of_trick?, after: :game_rake_cards!
     end
 
