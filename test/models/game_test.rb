@@ -84,7 +84,7 @@ class GameTest < ActiveSupport::TestCase
     end
   end
 
-  describe 'after trump has been declared' do
+  describe 'gameplay after trump has been declared' do
     # Todo: These methods need to be DRY'd up.
     def ready_game
       new_game = Game.new
@@ -112,10 +112,20 @@ class GameTest < ActiveSupport::TestCase
         end
         assert_equal 'raking_cards', euchre.state
       end
+      assert_equal 'scoring', euchre.state
     end
 
-    it 'another round begins if players have cards remaining' do
-
+    it 'the game ends when the score is >= 10' do
+      5.times do |round|
+        4.times do |i|
+          player = euchre.send(:player)
+          euchre.player_play(player.code, player.hand.cards.first)
+          assert_equal (4-round), player.hand.cards.size
+        end
+        assert_equal 'raking_cards', euchre.state
+      end
+      euchre.send(:team_scores)[0] = 10
+      assert_equal 'game_over', euchre.state
     end
   end
 end
